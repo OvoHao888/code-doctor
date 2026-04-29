@@ -1,0 +1,17 @@
+# 基础依赖
+fastapi==0.110.0
+uvicorn==0.28.0
+pydantic==2.6.1
+python-dotenv==1.0.1
+
+# LangGraph & LangChain
+langgraph==0.0.56
+langchain-core==0.1.40
+langchain-openai==0.1.6
+
+# 向量数据库
+faiss-cpu==1.8.0
+
+# 其他工具
+aiohttp==3.9.3
+requests==2.31.0
