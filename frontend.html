@@ -1,0 +1,885 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Code Doctor</title>
+    <link rel="icon" href="favicon.ico" type="image/x-icon">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(180deg, #0a1628 0%, #0f2847 30%, #1a3a6e 70%, #0d1f35 100%);
+            min-height: 100vh;
+            color: #e0e0e0;
+            line-height: 1.6;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: -10%;
+            width: 60%;
+            height: 60%;
+            background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        body::after {
+            content: '';
+            position: absolute;
+            bottom: -10%;
+            left: -10%;
+            width: 50%;
+            height: 50%;
+            background: radial-gradient(circle, rgba(14, 165, 233, 0.1) 0%, transparent 70%);
+            border-radius: 50%;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px 0;
+        }
+        
+        header .logo {
+            width: 70px;
+            height: 70px;
+            margin-bottom: 20px;
+            border-radius: 20px;
+            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 30px rgba(6, 182, 212, 0.4), 0 4px 15px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        header .logo:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 40px rgba(6, 182, 212, 0.6), 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        header .logo img {
+            width: 45px;
+            height: 45px;
+        }
+        
+        header h1 {
+            font-size: 2.8em;
+            background: linear-gradient(135deg, #22d3ee, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 12px;
+            text-shadow: 0 0 30px rgba(6, 182, 212, 0.5);
+            font-weight: 700;
+            letter-spacing: 2px;
+        }
+        
+        header p {
+            color: #8892b0;
+            font-size: 1.2em;
+            font-weight: 400;
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+        
+        .card h2 {
+            font-size: 1.4em;
+            margin-bottom: 25px;
+            color: #fff;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            padding-bottom: 15px;
+            font-weight: 600;
+        }
+        
+        .form-group {
+            margin-bottom: 25px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 10px;
+            color: #a0aec0;
+            font-weight: 500;
+            font-size: 1.05em;
+        }
+        
+        .form-group textarea {
+            width: 100%;
+            padding: 18px;
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            border-radius: 12px;
+            color: #e0e0e0;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            resize: vertical;
+            min-height: 160px;
+            outline: none;
+            transition: all 0.3s;
+        }
+        
+        .form-group textarea:focus {
+            border-color: #06b6d4;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.2);
+        }
+        
+        .form-group textarea::placeholder {
+            color: #555;
+        }
+        
+        .tag-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .tag-item {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: #a0aec0;
+            padding: 10px 16px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 8px;
+            font-size: 0.95em;
+        }
+        
+        .tag-check {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            background: #06b6d4;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.75em;
+            font-weight: bold;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 18px;
+            background: linear-gradient(135deg, #06b6d4, #0ea5e9);
+            border: none;
+            border-radius: 15px;
+            color: white;
+            font-size: 1.15em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(6, 182, 212, 0.3);
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(6, 182, 212, 0.5);
+            background: linear-gradient(135deg, #0ea5e9, #06b6d4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .result-section {
+            display: none;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 50px;
+            color: #8892b0;
+        }
+        
+        .loading .spinner {
+            width: 45px;
+            height: 45px;
+            border: 3px solid rgba(6, 182, 212, 0.15);
+            border-top-color: #06b6d4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 25px;
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.3);
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        
+        .stat-item {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .stat-item .number {
+            font-size: 2em;
+            font-weight: bold;
+            background: linear-gradient(135deg, #06b6d4, #22d3ee);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .stat-item .label {
+            font-size: 0.85em;
+            color: #8892b0;
+            margin-top: 8px;
+        }
+        
+        .code-box {
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 12px;
+            padding: 20px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 14px;
+            color: #e0e0e0;
+            max-height: 320px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .bug-list {
+            margin-top: 15px;
+        }
+        
+        .bug-item {
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 12px;
+            padding: 18px;
+            margin-bottom: 12px;
+            border-left: 4px solid #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.2);
+        }
+        
+        .bug-item.warning {
+            border-left-color: #f59e0b;
+            border-color: rgba(245, 158, 11, 0.2);
+        }
+        
+        .bug-item.info {
+            border-left-color: #3b82f6;
+            border-color: rgba(59, 130, 246, 0.2);
+        }
+        
+        .bug-item h4 {
+            color: #fff;
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+        
+        .bug-item p {
+            color: #a0aec0;
+            font-size: 0.95em;
+            line-height: 1.6;
+        }
+        
+        .btn-secondary {
+            padding: 12px 22px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 10px;
+            color: #e0e0e0;
+            cursor: pointer;
+            font-size: 0.95em;
+            margin-right: 12px;
+            margin-bottom: 12px;
+            transition: all 0.2s;
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+        
+        .example-section {
+            margin-top: 35px;
+        }
+        
+        .example-cards {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        @media (min-width: 600px) {
+            .example-cards {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+        
+        .example-card {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 15px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.06);
+            transition: all 0.3s;
+        }
+        
+        .example-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.3);
+        }
+        
+        .example-card h4 {
+            margin-bottom: 18px;
+            color: #fff;
+            font-weight: 600;
+        }
+        
+        .example-card .code-preview {
+            background: rgba(0, 0, 0, 0.35);
+            border-radius: 10px;
+            padding: 18px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 13px;
+            color: #a0aec0;
+            margin-bottom: 18px;
+            max-height: 180px;
+            overflow-y: auto;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .btn-example {
+            width: 100%;
+            padding: 14px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            font-size: 1em;
+            font-weight: 500;
+            transition: all 0.3s;
+        }
+        
+        .btn-buggy {
+            background: rgba(239, 68, 68, 0.15);
+            color: #ef4444;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+        
+        .btn-buggy:hover {
+            background: rgba(239, 68, 68, 0.25);
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+        }
+        
+        .btn-correct {
+            background: rgba(34, 197, 94, 0.15);
+            color: #22c55e;
+            border: 1px solid rgba(34, 197, 94, 0.25);
+        }
+        
+        .btn-correct:hover {
+            background: rgba(34, 197, 94, 0.25);
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2);
+        }
+        
+        footer {
+            text-align: center;
+            padding: 40px 0;
+            color: #64748b;
+            font-size: 0.95em;
+        }
+        
+        .toast {
+            position: fixed;
+            bottom: 40px;
+            right: 40px;
+            background: rgba(34, 197, 94, 0.95);
+            padding: 18px 28px;
+            border-radius: 12px;
+            color: white;
+            display: none;
+            animation: fadeInUp 0.3s ease;
+            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.3);
+            font-weight: 500;
+        }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(25px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .error-message {
+            background: rgba(239, 68, 68, 0.08);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+            border-radius: 12px;
+            padding: 20px;
+            color: #ef4444;
+            display: none;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            margin-bottom: 25px;
+        }
+        
+        .tab {
+            padding: 12px 25px;
+            background: none;
+            border: none;
+            color: #64748b;
+            cursor: pointer;
+            font-size: 1.05em;
+            margin-right: 25px;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            font-weight: 500;
+        }
+        
+        .tab:hover {
+            color: #a0aec0;
+        }
+        
+        .tab.active {
+            color: #06b6d4;
+            border-bottom-color: #06b6d4;
+        }
+        
+        .line-counter {
+            float: right;
+            color: #5a6a85;
+            font-size: 0.9em;
+            margin-top: 8px;
+            font-weight: 500;
+        }
+        
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(255, 255, 255, 0.25);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 头部 -->
+        <header>
+            <div class="logo">
+                <img src="favicon.ico" alt="Logo">
+            </div>
+            <h1>Code Doctor</h1>
+            <p>AI驱动的智能代码诊断助手</p>
+        </header>
+
+        <!-- 主卡片 -->
+        <div class="card">
+            <!-- 标签页 -->
+            <div class="tabs">
+                <button class="tab active">代码诊断</button>
+            </div>
+
+            <!-- 表单区域 -->
+            <form id="codeForm">
+                <div class="form-group">
+                    <label>
+                        待诊断代码
+                        <span class="line-counter" id="codeLineCount">0 行</span>
+                    </label>
+                    <textarea id="code" rows="10" placeholder="在此粘贴您的Python代码，我来帮您诊断问题..."></textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>错误日志 (可选)</label>
+                    <textarea id="errorInfo" rows="3" placeholder="如果有运行时错误信息，请粘贴到这里..."></textarea>
+                </div>
+
+                <div class="tag-group">
+                    <span class="tag-item">
+                        <span class="tag-check">✓</span>
+                        <span>语法检查</span>
+                    </span>
+                    <span class="tag-item">
+                        <span class="tag-check">✓</span>
+                        <span>逻辑分析</span>
+                    </span>
+                    <span class="tag-item">
+                        <span class="tag-check">✓</span>
+                        <span>性能优化</span>
+                    </span>
+                    <span class="tag-item">
+                        <span class="tag-check">✓</span>
+                        <span>安全检测</span>
+                    </span>
+                </div>
+
+                <button type="submit" id="submitBtn" class="btn">
+                    开始诊断
+                </button>
+            </form>
+
+            <!-- 结果区域 -->
+            <div id="resultSection" class="result-section">
+                <h2>诊断报告</h2>
+                
+                <!-- 加载动画 -->
+                <div id="loadingSpinner" class="loading">
+                    <div class="spinner"></div>
+                    <p>AI正在分析代码...</p>
+                </div>
+
+                <!-- 结果内容 -->
+                <div id="resultContent" style="display: none;">
+                    <!-- 统计概览 -->
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="number" id="bugCount">0</div>
+                            <div class="label">发现问题</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="number" id="criticalCount">0</div>
+                            <div class="label">严重问题</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="number" id="warningCount">0</div>
+                            <div class="label">警告</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="number" id="fixCount">0</div>
+                            <div class="label">修复方案</div>
+                        </div>
+                    </div>
+
+                    <!-- 代码解析 -->
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 12px; color: #22d3ee; font-weight: 600;">代码解析</h3>
+                        <div class="code-box" id="parsedCode">解析结果将显示在这里...</div>
+                    </div>
+
+                    <!-- Bug列表 -->
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 12px; color: #f59e0b; font-weight: 600;">问题检测</h3>
+                        <div id="bugInfo" class="bug-list"></div>
+                    </div>
+
+                    <!-- 修复方案 -->
+                    <div style="margin-bottom: 25px;">
+                        <h3 style="margin-bottom: 12px; color: #22c55e; font-weight: 600;">修复方案</h3>
+                        <button class="btn-secondary" onclick="copyToClipboard('fixCode')">复制代码</button>
+                        <button class="btn-secondary" onclick="applyFix()">应用修复</button>
+                        <div class="code-box" id="fixCode">修复代码将显示在这里...</div>
+                    </div>
+
+                    <!-- 详细报告 -->
+                    <div>
+                        <h3 style="margin-bottom: 12px; color: #06b6d4; font-weight: 600;">详细报告</h3>
+                        <div id="report" style="color: #a0aec0; line-height: 1.8; background: rgba(0,0,0,0.2); padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);"></div>
+                    </div>
+                </div>
+
+                <!-- 错误提示 -->
+                <div id="errorMessage" class="error-message">
+                    <strong>诊断失败：</strong>
+                    <span id="errorDetails"></span>
+                </div>
+            </div>
+        </div>
+
+        <!-- 示例代码 -->
+        <div class="example-section">
+            <h2 style="margin-bottom: 25px; color: #fff; font-weight: 600;">示例代码</h2>
+            <div class="example-cards">
+                <!-- 有bug的代码 -->
+                <div class="example-card">
+                    <h4>存在问题的代码</h4>
+                    <div class="code-preview">def calculate_average(numbers):
+    sum = 0
+    for i in numbers:
+        sum += i
+    return sum / len(numbers)
+
+# 测试代码
+print(calculate_average([]))</div>
+                    <button class="btn-example btn-buggy" onclick="loadExample('buggy')">加载问题代码</button>
+                </div>
+
+                <!-- 修复后的代码 -->
+                <div class="example-card">
+                    <h4>修复完成的代码</h4>
+                    <div class="code-preview">def calculate_average(numbers):
+    if not numbers:
+        return 0
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+
+# 测试代码
+print(calculate_average([]))</div>
+                    <button class="btn-example btn-correct" onclick="loadExample('correct')">加载修复代码</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 页脚 -->
+        <footer>
+            <p>使用 LangGraph + FastAPI 构建</p>
+            <p style="font-size: 0.85em; margin-top: 8px;">© 2026 Code Doctor</p>
+        </footer>
+    </div>
+
+    <!-- Toast 通知 -->
+    <div id="toast" class="toast"></div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        // 监听表单提交
+        document.getElementById('codeForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            await submitCode();
+        });
+
+        // 监听代码输入，更新行数
+        document.getElementById('code').addEventListener('input', function() {
+            const lines = this.value.split('\n');
+            document.getElementById('codeLineCount').textContent = `${lines.length} 行`;
+        });
+
+        // 提交代码进行诊断
+        async function submitCode() {
+            const code = document.getElementById('code').value;
+            const errorInfo = document.getElementById('errorInfo').value;
+
+            if (!code.trim()) {
+                alert('请输入代码');
+                return;
+            }
+
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('loadingSpinner').style.display = 'block';
+            document.getElementById('resultContent').style.display = 'none';
+            document.getElementById('errorMessage').style.display = 'none';
+
+            try {
+                const response = await fetch(`${API_BASE}/checkCode`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code, error_info: errorInfo })
+                });
+
+                if (!response.ok) throw new Error(`API错误: ${response.status}`);
+                const result = await response.json();
+                displayResult(result);
+            } catch (error) {
+                displayError(error.message);
+            } finally {
+                document.getElementById('loadingSpinner').style.display = 'none';
+            }
+        }
+
+        // 显示结果
+        function displayResult(result) {
+            document.getElementById('resultContent').style.display = 'block';
+            
+            const messages = result.messages || [];
+            let parsedCode = '';
+            let bugInfo = '';
+            let fixCode = '';
+            let report = '';
+            
+            messages.forEach(msg => {
+                const content = typeof msg === 'object' ? (msg.content || '') : String(msg);
+                if (content.includes('解析') || content.includes('结构') || content.includes('函数') || content.includes('变量')) {
+                    if (!parsedCode) parsedCode = content;
+                }
+                if (content.includes('错误') || content.includes('bug') || content.includes('Bug') || content.includes('语法') || content.includes('逻辑')) {
+                    if (!bugInfo) bugInfo = content;
+                }
+                if (content.includes('修复') || content.includes('fix') || content.includes('代码：') || content.includes('def ') || content.includes('return ')) {
+                    if (!fixCode) fixCode = content;
+                }
+                if (content.includes('报告') || content.includes('总结') || content.includes('完成') || content.includes('结果')) {
+                    if (!report) report = content;
+                }
+            });
+            
+            if (!parsedCode) parsedCode = messages.slice(0, 2).map(m => typeof m === 'object' ? (m.content || '') : String(m)).join('\n') || '无解析结果';
+            if (!bugInfo) bugInfo = messages.slice(1, 3).map(m => typeof m === 'object' ? (m.content || '') : String(m)).join('\n') || '未发现明显问题';
+            if (!fixCode) fixCode = messages.slice(2, 4).map(m => typeof m === 'object' ? (m.content || '') : String(m)).join('\n') || '无修复方案';
+            if (!report) report = messages.length > 0 ? (typeof messages[messages.length-1] === 'object' ? messages[messages.length-1].content : String(messages[messages.length-1])) : '无报告';
+            
+            document.getElementById('parsedCode').textContent = parsedCode;
+            document.getElementById('fixCode').textContent = fixCode;
+            document.getElementById('report').textContent = report;
+            
+            renderBugCards(bugInfo);
+            updateStats(bugInfo, fixCode);
+        }
+
+        // 渲染Bug卡片
+        function renderBugCards(bugInfo) {
+            const bugContainer = document.getElementById('bugInfo');
+            if (!bugInfo || bugInfo.includes('未发现')) {
+                bugContainer.innerHTML = '<div style="text-align: center; padding: 25px; color: #22c55e; font-size: 1.1em;">✓ 代码质量良好，未发现明显问题</div>';
+                return;
+            }
+            
+            const bugItems = bugInfo.split(/\n(?=[\d*•-])/).filter(item => item.trim());
+            const cards = bugItems.map((item, index) => {
+                const isCritical = item.includes('Critical') || item.includes('严重');
+                const isHigh = item.includes('High') || item.includes('高');
+                const severityClass = isCritical ? 'bug-item' : isHigh ? 'bug-item warning' : 'bug-item info';
+                
+                return `
+                    <div class="${severityClass}">
+                        <h4>${item.split('\n')[0] || `问题 ${index + 1}`}</h4>
+                        <p>${item.split('\n').slice(1).join('\n') || '暂无详细描述'}</p>
+                    </div>
+                `;
+            });
+            
+            bugContainer.innerHTML = cards.join('');
+        }
+
+        // 更新统计数字
+        function updateStats(bugInfo, fixCode) {
+            let bugCount = 0;
+            let criticalCount = 0;
+            let warningCount = 0;
+            
+            if (bugInfo && !bugInfo.includes('未发现')) {
+                const bugItems = bugInfo.split(/\n(?=[\d*•-])/).filter(item => item.trim());
+                bugCount = bugItems.length;
+                
+                bugItems.forEach(item => {
+                    if (item.includes('Critical') || item.includes('严重')) {
+                        criticalCount++;
+                    } else if (item.includes('High') || item.includes('高')) {
+                        warningCount++;
+                    }
+                });
+            }
+            
+            document.getElementById('bugCount').textContent = bugCount;
+            document.getElementById('criticalCount').textContent = criticalCount;
+            document.getElementById('warningCount').textContent = warningCount;
+            document.getElementById('fixCount').textContent = fixCode && fixCode.includes('def ') ? bugCount : 0;
+        }
+
+        // 显示错误
+        function displayError(message) {
+            document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('errorDetails').textContent = message;
+        }
+
+        // 复制到剪贴板
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                showToast('已复制到剪贴板');
+            });
+        }
+
+        // 应用修复
+        function applyFix() {
+            const fixCode = document.getElementById('fixCode').textContent;
+            if (fixCode && !fixCode.includes('修复代码将显示')) {
+                document.getElementById('code').value = fixCode;
+                document.getElementById('code').dispatchEvent(new Event('input'));
+                showToast('修复已应用到编辑器');
+            }
+        }
+
+        // 显示Toast
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.style.display = 'block';
+            setTimeout(() => {
+                toast.style.display = 'none';
+            }, 2500);
+        }
+
+        // 加载示例代码
+        function loadExample(type) {
+            const buggyCode = `def calculate_average(numbers):
+    sum = 0
+    for i in numbers:
+        sum += i
+    return sum / len(numbers)
+
+# 测试代码
+print(calculate_average([]))`;
+            
+            const correctCode = `def calculate_average(numbers):
+    if not numbers:
+        return 0
+    total = 0
+    for num in numbers:
+        total += num
+    return total / len(numbers)
+
+# 测试代码
+print(calculate_average([]))`;
+
+            document.getElementById('code').value = type === 'buggy' ? buggyCode : correctCode;
+            document.getElementById('code').dispatchEvent(new Event('input'));
+        }
+    </script>
+</body>
+</html>

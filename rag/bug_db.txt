@@ -1,0 +1,646 @@
+# Python 超级完整知识库
+
+## 0. 前言：适用范围
+本知识库适用于 Python 3.8+，内容包括：基础语法、数据结构、函数、面向对象、模块、IO、并发、异步、常用标准库、异常体系、Bug 解决方案、编码规范、性能优化、安全规范、调试技巧。
+
+---
+
+## 一、基础语法与编码规范（PEP 8）
+
+### 1.1 命名规范
+- 变量 / 函数 / 方法 / 模块包：snake_case（小写 + 下划线）
+- 类名：UpperCamelCase（大驼峰）
+- 常量：UPPER_SNAKE_CASE（全大写）
+- 私有属性 / 方法：_single_leading_underscore
+- 特殊私有：__double_leading_underscore
+- 避免使用：l、I、O、key、value、data、info、utils 等模糊命名
+
+### 1.2 格式规范
+- 缩进：4 个空格，禁止 Tab 与空格混用
+- 行宽：≤ 120 字符
+- 二元运算符两侧加空格
+- 逗号后必须加空格
+- 函数与类之间空两行
+- 导入顺序：标准库 → 第三方库 → 本地包
+- 禁止一行多语句：a=1;b=2
+- 字符串优先使用双引号
+- 避免行尾多余空格
+
+### 1.3 关键字与保留字
+不可用于变量名：False, None, True, and, as, assert, async, await, break, class, continue, def, del, elif, else, except, finally, for, from, global, if, import, in, is, lambda, nonlocal, not, or, pass, raise, return, try, while, with, yield
+
+### 1.4 注释规范
+- 单行注释：# 后加空格
+- 函数 / 类必须写文档字符串 docstring
+- 复杂逻辑写注释，避免废话注释
+- 不使用注释掉的旧代码
+
+---
+
+## 二、数据类型系统
+
+### 2.1 基础类型
+- int：整数，无大小限制
+- float：浮点数
+- bool：True / False
+- str：字符串，不可变
+- bytes：字节串
+- NoneType：空值
+
+### 2.2 容器类型
+- list：有序可变列表 [1,2,3]
+- tuple：有序不可变元组 (1,2,3)
+- dict：键值对字典 {"k":v}
+- set：无序不重复集合 {1,2,3}
+- frozenset：不可变集合
+
+### 2.3 类型判断
+- type (obj)：精确类型判断
+- isinstance (obj, cls)：推荐使用，支持继承
+- 不要用 type () 判断继承关系
+
+### 2.4 类型转换
+- int (x)
+- float (x)
+- str (x)
+- bool (x)
+- list (x)
+- tuple (x)
+- dict (x)
+- set (x)
+- 假值：0, 0.0, "", [], (), {}, set (), None
+
+---
+
+## 三、字符串 str
+
+### 3.1 定义
+- s = 'abc'
+- s = "abc"
+- s = """多行字符串"""
+
+### 3.2 格式化（优先级从高到低）
+- f-string（推荐）：f"name={name}, age={age}"
+- str.format ()："name={}".format (name)
+- % 格式化（不推荐）
+
+### 3.3 常用方法
+- s.strip () / lstrip () / rstrip ()
+- s.split (sep)
+- s.join (iterable)
+- s.replace (old, new)
+- s.startswith (prefix)
+- s.endswith (suffix)
+- s.lower () / upper ()
+- s.isdigit () / isalpha () / isalnum ()
+- s.find (sub)
+- s.index (sub)
+- len (s)
+
+### 3.4 索引与切片
+- s [0] 第一个字符
+- s [-1] 最后一个
+- s [1:3] 切片
+- s [::2] 步长
+
+### 3.5 特性
+字符串不可变，不能 s [0] = 'a' 修改必须生成新字符串
+
+---
+
+## 四、列表 list
+
+### 4.1 常用方法
+- append (x)
+- extend (iterable)
+- insert (i, x)
+- pop (i=-1)
+- remove (x)
+- clear ()
+- index (x)
+- count (x)
+- sort ()
+- reverse ()
+- copy ()
+
+### 4.2 遍历
+for item in lst:pass
+
+### 4.3 列表推导式
+- [x for x in lst if cond]
+- [x for x in range (10)]
+
+### 4.4 常见坑
+- 遍历时删除元素会导致漏删
+- 浅拷贝导致互相影响
+- 索引越界
+
+---
+
+## 五、元组 tuple
+- 不可变，无法增删改
+- 用于固定结构数据
+- 可作为字典键
+- 比列表更小更快
+
+---
+
+## 六、字典 dict
+
+### 6.1 操作
+- d = {}
+- d [k] = v
+- del d [k]
+
+### 6.2 安全获取
+v = d.get (key, default) # 推荐避免直接 d [key] 导致 KeyError
+
+### 6.3 遍历
+- for k, v in d.items ():pass
+- for k in d.keys ():pass
+- for v in d.values ():pass
+
+### 6.4 字典推导式
+{k: v for k, v in iterable}
+
+### 6.5 常见坑
+- 不可哈希类型不能做键
+- 遍历时增删键报错
+- 修改原字典影响所有引用
+
+---
+
+## 七、集合 set
+- 去重
+- 支持并集 |、交集 &、差集 -
+- 无顺序，无索引
+- 查找速度 O (1)
+
+---
+
+## 八、流程控制
+
+### 8.1 条件语句
+if cond1:
+    ...
+elif cond2:
+    ...
+else:
+    ...
+
+### 8.2 三元表达式
+x = a if cond else b
+
+### 8.3 循环
+- for item in iterable:...
+- while cond:...
+
+### 8.4 循环控制
+- break：退出循环
+- continue：跳过本次
+- else：循环正常结束执行
+
+### 8.5 最佳实践
+- 避免多层嵌套
+- 用提前 return 减少缩进
+- 避免手写索引循环
+- 避免死循环
+
+---
+
+## 九、函数
+
+### 9.1 定义
+def func (a: int, b: str = "default") -> bool:
+    """文档字符串"""
+    return True
+
+### 9.2 参数类型
+- 位置参数
+- 默认参数
+- *args：可变位置参数
+- **kwargs：可变关键字参数
+
+### 9.3 作用域
+- L：局部
+- E：闭包
+- G：全局
+- B：内置
+- 修改全局变量需 global
+- 嵌套函数修改外层用 nonlocal
+
+### 9.4 闭包
+内部函数引用外部变量
+
+### 9.5 装饰器
+@decorator
+def func ():
+    pass
+用途：日志、缓存、权限、计时
+
+### 9.6 生成器
+def gen ():
+    yield 1
+    yield 2
+惰性计算，节省内存
+
+### 9.7 lambda
+lambda x: x * 2
+仅用于简单单行逻辑
+
+### 9.8 常见 Bug
+- 忘记 return
+- 默认参数为 [] / {} 导致共用对象
+- UnboundLocalError
+- 参数顺序错误
+- 可变对象默认值
+
+---
+
+## 十、面向对象 OOP
+
+### 10.1 类定义
+class User:
+    def __init__ (self, name: str):
+        self.name = name
+    
+    def say (self):
+        print (self.name)
+
+### 10.2 方法
+- 实例方法：self
+- 类方法：@classmethod, cls
+- 静态方法：@staticmethod
+- 属性方法：@property
+
+### 10.3 继承
+class Student (User):
+    def __init__ (self, name, score):
+        super ().__init__ (name)
+        self.score = score
+
+### 10.4 魔术方法
+__init__ __str__ __repr__ __len__ __getitem__ __setitem__ __eq__ __hash__
+
+### 10.5 dataclass（推荐）
+from dataclasses import dataclass
+
+@dataclass
+class User:
+    name: str
+    age: int = 18
+
+### 10.6 常见 Bug
+- 忘记 self
+- AttributeError
+- 继承顺序错误
+- 父类构造未调用
+
+---
+
+## 十一、模块与包
+
+### 11.1 导入
+- import module
+- from module import func
+- from module import func as alias
+
+### 11.2 禁止
+from module import *
+
+### 11.3 包结构
+文件夹 + __init__.py 构成包
+__init__.py 可空，可导出接口
+
+### 11.4 常见问题
+- ModuleNotFoundError
+- ImportError
+- 循环导入 circular import
+- 相对路径导入错误
+
+---
+
+## 十二、文件与 IO
+
+### 12.1 文件打开（必用 with）
+with open ("path", "r", encoding="utf-8") as f:
+    content = f.read ()
+
+### 12.2 模式
+- r：只读
+- w：覆盖写
+- a：追加
+- rb / wb：二进制
+
+### 12.3 读写方法
+- read ()
+- readline ()
+- readlines ()
+- write (s)
+- writelines (lst)
+
+### 12.4 路径处理
+from pathlib import Path
+path = Path ("a/b/c.txt")
+
+### 12.5 常见 Bug
+- FileNotFoundError
+- PermissionError
+- UnicodeDecodeError
+- 忘记关闭文件
+- 相对路径错误
+
+---
+
+## 十三、标准库高频使用
+
+### 13.1 os
+- os.listdir ()
+- os.path.exists ()
+- os.remove ()
+- os.makedirs ()
+
+### 13.2 sys
+- sys.argv
+- sys.path
+- sys.exit ()
+
+### 13.3 pathlib（现代）
+- Path.exists ()
+- Path.read_text ()
+- Path.write_text ()
+- Path.glob ()
+
+### 13.4 json
+import json
+- d = json.loads (s)
+- s = json.dumps (d, ensure_ascii=False)
+
+### 13.5 datetime
+from datetime import datetime, timedelta
+- now = datetime.now ()
+- tomorrow = now + timedelta (days=1)
+
+### 13.6 time
+- time.sleep ()
+- time.time ()
+
+### 13.7 re 正则
+- re.match
+- re.search
+- re.findall
+- re.sub
+
+### 13.8 logging
+- logging.basicConfig ()
+- logging.info()
+- logging.error ()
+
+### 13.9 argparse
+命令行参数解析
+
+### 13.10 collections
+- defaultdict
+- Counter
+- OrderedDict
+- deque
+
+### 13.11 functools
+- lru_cache
+- partial
+- wraps
+
+### 13.12 itertools
+- count
+- cycle
+- chain
+- islice
+
+---
+
+## 十四、异常体系（完整）
+
+### 14.1 基础异常
+- Exception：所有异常基类
+- ArithmeticError：计算错误
+- LookupError：查找错误
+
+### 14.2 常见异常
+- SyntaxError：语法错误
+- IndentationError：缩进错误
+- NameError：名称未定义
+- UnboundLocalError：局部变量未赋值
+- TypeError：类型不匹配
+- ValueError：值非法
+- IndexError：索引越界
+- KeyError：字典键不存在
+- AttributeError：无此属性 / 方法
+- FileNotFoundError：文件不存在
+- PermissionError：权限不足
+- UnicodeDecodeError：编码错误
+- ModuleNotFoundError：模块不存在
+- ImportError：导入失败
+- ZeroDivisionError：除零
+- AssertionError：断言失败
+- StopIteration：迭代结束
+- RuntimeError：运行时错误
+
+### 14.3 异常捕获
+try:
+    ...
+except ValueError as e:
+    ...
+except (KeyError, IndexError) as e:
+    ...
+finally:
+    ...
+
+### 14.4 最佳实践
+- 不使用裸 except:
+- 不捕获 Exception 大范围
+- 不在 except 中空处理
+- 异常用于错误，不用于流程控制
+- 抛出清晰异常信息
+
+---
+
+## 十五、常见 Bug 完整解决方案
+
+### 15.1 IndentationError
+- 原因：Tab 与空格混用、缩进不统一
+- 方案：统一 4 空格，编辑器显示空白符
+
+### 15.2 NameError
+- 原因：变量未定义、拼写错误、作用域错误
+- 方案：检查拼写、检查定义顺序、检查 global
+
+### 15.3 TypeError
+- 原因：类型不匹配、函数参数错误、不可变对象修改
+- 方案：类型转换、检查参数、使用正确方法
+
+### 15.4 ValueError
+- 原因：值非法，如 int ("abc")
+- 方案：校验输入、try-except、判断 isdigit
+
+### 15.5 IndexError
+- 原因：列表 / 字符串越界
+- 方案：判断长度、避免硬编码索引
+
+### 15.6 KeyError
+- 原因：字典键不存在
+- 方案：get ()、判断 key in d
+
+### 15.7 AttributeError
+- 原因：对象无属性 / 方法
+- 方案：检查类型、检查初始化、检查拼写
+
+### 15.8 UnboundLocalError
+- 原因：函数内修改变量未声明 global
+- 方案：加 global 或传参
+
+### 15.9 FileNotFoundError
+- 原因：路径错误、工作目录错误
+- 方案：绝对路径、pathlib、检查文件
+
+### 15.10 UnicodeDecodeError
+- 原因：编码不匹配
+- 方案：encoding='utf-8' 或 'gbk'
+
+### 15.11 循环导入
+- 原因：A 导入 B，B 导入 A
+- 方案：抽离公共模块、延迟导入
+
+### 15.12 默认参数为 [] / {}
+- 原因：只初始化一次
+- 方案：默认 None，函数内创建
+
+### 15.13 列表遍历时删除
+- 方案：倒序遍历、生成新列表、列表推导式
+
+### 15.14 input 直接运算
+- 方案：int (input ())、捕获异常
+
+### 15.15 编码中文乱码
+- 方案：文件 utf-8、open 指定编码、json ensure_ascii=False
+
+### 15.16 浅拷贝问题
+- 方案：copy / deepcopy
+
+---
+
+## 十六、异步编程 asyncio
+
+### 16.1 基础
+async def func ():
+    await asyncio.sleep (1)
+
+asyncio.run (func ())
+
+### 16.2 适用场景
+IO 密集型：网络请求、文件、数据库
+
+### 16.3 常见坑
+- 在异步中使用同步阻塞函数
+- 忘记 await
+- 协程未运行
+- 不同时使用同步 + 异步 IO
+
+---
+
+## 十七、并发与多线程
+- threading：线程
+- multiprocessing：进程
+- GIL 限制 CPU 密集型效率
+- CPU 密集用多进程
+- IO 密集用多线程 / 异步
+
+---
+
+## 十八、性能优化
+- 使用局部变量比全局快
+- 列表推导优于循环 append
+- 生成器节省内存
+- lru_cache 缓存重复计算
+- 避免频繁小对象创建
+- 使用集合做成员判断
+- 避免在循环内重复打开文件
+- 使用内置函数而非手写循环
+
+---
+
+## 十九、安全规范
+- 不执行外部输入的 eval / exec
+- 不使用 subprocess 直接拼接用户输入
+- 不硬编码密钥、密码
+- 敏感信息放环境变量
+- 防止路径遍历攻击
+- 输入校验与过滤
+
+---
+
+## 二十、调试技巧
+- print ()
+- logging
+- breakpoint ()
+- pdb
+- IDE 断点调试
+- 查看类型 type ()
+- 查看属性 dir ()
+- 查看文档 help ()
+
+---
+
+## 二十一、工程最佳实践（高级）
+- 使用虚拟环境
+- requirements.txt / pyproject.toml
+- 使用类型注解
+- 写单元测试 pytest
+- 使用 linter / formatter：ruff / black
+- 函数单一职责
+- 避免全局变量
+- 避免深层嵌套
+- 提前 return
+- 避免魔法数字
+- 代码复用
+- 模块化拆分
+- 配置与代码分离
+- 日志代替 print
+- 异常清晰可追踪
+- 版本管理 git
+- 小步提交
+
+---
+
+## 二十二、反模式（必须避免）
+- 单字母变量泛滥
+- 函数过长（>100 行）
+- 多层嵌套
+- 重复代码
+- 全局变量满天飞
+- 裸 except
+- 空 except 块
+- 过度魔术写法
+- 硬编码路径、常量
+- 过度继承
+- 手写重复造轮子
+- 大杂烩模块
+- 无注释无文档
+- 混用 Tab / 空格
+- 一行超长代码
+- 过度优化
+
+---
+
+## 二十三、完整学习路线
+1. 基础语法
+2. 数据结构
+3. 函数与作用域
+4. 面向对象
+5. 模块与包
+6. 文件 IO
+7. 异常处理
+8. 标准库
+9. 异步与并发
+10. 工程规范
+11. 测试与调试
+12. 性能与安全
