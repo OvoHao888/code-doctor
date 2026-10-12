@@ -1,0 +1,198 @@
+# Python 常见 Bug 修复知识库
+
+本知识库面向"代码缺陷检测与修复"任务，按 Bug 类型组织：每条包含【症状】【根因】【修复模式】。
+
+---
+
+## 一、除零错误 ZeroDivisionError
+
+【症状】
+division by zero；integer division or modulo by zero；float division by zero。
+常见于 `a / b`、`a // b`、`a % b`，以及以 `len(x)` 作除数求平均值时。
+
+【根因】
+除数在运行时取值为 0。尤其常见于：对空列表求平均（len 为 0）、
+用户传入的参数未做入参校验、上游函数返回 0 未检查。
+
+【修复模式】
+1. 显式入参校验：
+   ```python
+   def divide(a, b):
+       if b == 0:
+           raise ValueError("除数不能为 0")
+       return a / b
+   ```
+2. 聚合函数对空集合做提前返回：
+   ```python
+   def average(numbers):
+       if not numbers:
+           return 0
+       return sum(numbers) / len(numbers)
+   ```
+3. 调用方用 try/except 包裹并给出兜底值。
+
+【要点】除零不要靠 assert 防，assert 在 -O 优化模式下会被移除。
+
+---
+
+## 二、索引越界 IndexError
+
+【症状】
+list index out of range；string index out of range；pop from empty list。
+
+【根因】
+下标超出 `[0, len(x)-1]` 范围。典型错误：`x[len(x)]`（差一错误，最后一个元素是 `len(x)-1`）、
+遍历中删除元素导致下标错位、对空序列取 `x[0]` 或 `x[-1]`。
+
+【修复模式】
+1. 取最后一个元素用 `x[-1]` 而非 `x[len(x)-1]`，并先判空。
+2. 显式范围检查：
+   ```python
+   def safe_get(values, idx):
+       if 0 <= idx < len(values):
+           return values[idx]
+       return None
+   ```
+3. 用切片替代下标：`x[i:i+1]` 越界时返回空列表而不报错。
+
+---
+
+## 三、空值解引用 AttributeError / TypeError
+
+【症状】
+'NoneType' object has no attribute 'xxx'；'NoneType' object is not subscriptable；
+'NoneType' object is not iterable。
+
+【根因】
+链式访问未做空值保护。典型场景：`config.get('a').get('b')` 当 `get('a')` 返回 None；
+查找函数未命中时返回 None，调用方直接取属性。
+
+【修复模式】
+1. 提前返回（卫语句）：
+   ```python
+   def get_name(user):
+       if user is None:
+           return ""
+       return user["name"].upper()
+   ```
+2. 字典链式访问用带默认值的 get：
+   ```python
+   config.get("address", {}).get("city")
+   ```
+3. 用 `(user or {}).get("name")` 处理可能为 None 的对象。
+4. 查找函数未命中时明确处理，不要静默返回 None 后直接解引用。
+
+【要点】区分"值为 None"与"键不存在"：`d.get(k)` 无法区分，需要时用 `k in d` 判断。
+
+---
+
+## 四、可变默认参数
+
+【症状】
+函数多次调用之间状态被污染；第一次调用结果影响第二次。
+例如 `add_item('a')` 返回 `['a']`，再调 `add_item('b')` 返回 `['a','b']` 而非 `['b']`。
+
+【根因】
+Python 默认参数在**函数定义时**求值一次，列表/字典/集合等可变对象会被所有调用共享。
+
+【修复模式】
+用 None 作哨兵值，在函数体内创建：
+```python
+def add_item(item, basket=None):
+    if basket is None:
+        basket = []
+    basket.append(item)
+    return basket
+```
+
+【要点】同样的坑存在于类属性共享、闭包捕获变量、`dataclass` 的 `field(default=[])`。
+
+---
+
+## 五、资源泄漏 ResourceWarning
+
+【症状】
+文件句柄/网络连接/数据库连接未及时释放；Windows 上表现为文件被占用无法删除；
+长时间运行进程句柄数持续增长直至耗尽。
+
+【根因】
+`f = open(path)` 之后依赖垃圾回收关闭。若中途抛异常，或对象长期被引用，句柄不会释放。
+
+【修复模式】
+一律使用 with 上下文管理器：
+```python
+def read_all(path):
+    with open(path) as f:
+        return f.read()
+```
+多个资源用逗号并列：`with open(a) as fa, open(b) as fb:`。
+需要手动管理时用 try/finally 保证 close。
+
+【要点】数据库连接、锁、临时文件同理。`contextlib.closing` 可包装无上下文协议的对象。
+
+---
+
+## 六、异常处理反模式
+
+【症状】
+裸 `except:`；`except Exception: pass`；捕获后静默忽略；吞掉 KeyboardInterrupt。
+
+【根因】
+过宽的异常捕获会掩盖真实错误，让问题在更远的地方以更难排查的形式爆发。
+
+【修复模式】
+1. 捕获具体异常类型：
+   ```python
+   try:
+       return int(text)
+   except ValueError:
+       return None
+   ```
+2. 必须捕获宽泛异常时要记录日志并重新抛出或转换：
+   ```python
+   except Exception:
+       logger.exception("解析失败")
+       raise
+   ```
+【要点】不要用异常控制正常流程；`except:` 会连 SystemExit 一起吞掉。
+
+---
+
+## 七、死循环
+
+【症状】
+程序挂起不返回；CPU 占用 100%。
+
+【根因】
+`while True` 缺少 break/return 出口；循环条件恒为真；等待条件永远不满足且无超时。
+
+【修复模式】
+1. 循环必须有明确出口，条件变量要在循环体内被修改。
+2. 等待类循环加上超时：
+   ```python
+   import time
+   deadline = time.monotonic() + 5
+   while time.monotonic() < deadline:
+       if done():
+           break
+   ```
+3. 用 `for _ in range(max_attempts)` 替代 `while True` 做重试。
+
+---
+
+## 八、其他高频缺陷
+
+【可变对象与浅拷贝】
+`copy.copy` 只复制一层，嵌套结构仍共享；需要深层复制用 `copy.deepcopy`。
+
+【浮点比较】
+`0.1 + 0.2 == 0.3` 为 False。应使用 `math.isclose(a, b, rel_tol=1e-9)`。
+
+【字符串拼接性能】
+循环内 `s += x` 在 CPython 上虽被优化，但跨实现不保证；大量拼接用 `"".join(list)`。
+
+【整数除法与取整】
+Python 3 中 `/` 返回 float，`//` 向下取整（负数时行为易错，如 `-1 // 2 == -1`）。
+
+【作用域与闭包】
+循环变量在闭包中按引用捕获，需用默认参数或 `functools.partial` 固化当前值。

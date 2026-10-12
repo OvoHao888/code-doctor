@@ -1,93 +1,89 @@
-import numpy as np
-from langchain_core.embeddings import Embeddings
-from langchain_community.vectorstores import FAISS
-from langchain_core.tools import tool
-import os
-from langchain_openai import OpenAIEmbeddings
-from dotenv import load_dotenv
-from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_core.documents import Document
-import logging
+"""FAISS 向量检索。
 
-# 降低日志级别到 ERROR
-logging.basicConfig(level=logging.ERROR)
+设计说明：
+    原实现在每个请求的**热路径**上调用 add_knowledge_to_faiss 去写向量库
+    （db.add_documents + save_local 会重写 index.faiss/index.pkl）。
+    多请求并发时这是数据竞争，而且单次请求的噪声会污染整个知识库。
+    这里把写入能力保留为**离线批处理**接口，不再挂在请求路径上。
+"""
+
+import logging
+import os
+
+from dotenv import load_dotenv
+from langchain_community.vectorstores import FAISS
+from langchain_core.documents import Document
+from langchain_openai import OpenAIEmbeddings
+
 logger = logging.getLogger(__name__)
 
 load_dotenv()
 
-try:
-    embedding = OpenAIEmbeddings(
-        api_key=os.getenv("SILICON_API_KEY"),
-        base_url=os.getenv("SILICON_API_BASE"),
-        model=os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3")
-    )
-except Exception as e:
-    logger.error(f"Embedding 初始化失败: {str(e)}")
-    embedding = None
+# 低于该相似度分数的检索结果直接丢弃（FAISS 的 L2 距离，越小越相似）。
+# 实测：相关章节距离约 0.75~0.85，无关章节约 0.95~1.0，0.9 能有效切分。
+MAX_DISTANCE = float(os.getenv("RAG_MAX_DISTANCE", "0.9"))
+
+_embedding = None
+_db = None
+_db_loaded = False
+
+
+def _get_embedding():
+    global _embedding
+    if _embedding is None:
+        _embedding = OpenAIEmbeddings(
+            api_key=os.getenv("SILICON_API_KEY"),
+            base_url=os.getenv("SILICON_API_BASE"),
+            model=os.getenv("EMBEDDING_MODEL", "BAAI/bge-m3"),
+        )
+    return _embedding
+
 
 def load_db():
+    """懒加载向量库。失败返回 None（RAG 是增强项，不该拖垮主流程）。"""
+    global _db, _db_loaded
+    if _db_loaded:
+        return _db
+    _db_loaded = True
     try:
-        db_path = os.getenv("KNOWLEDGE_DB_PATH", "rag/faiss")
-        db = FAISS.load_local(db_path, embedding, allow_dangerous_deserialization=True)
-        return db
+        path = os.getenv("KNOWLEDGE_DB_PATH", "rag/faiss").strip('"')
+        _db = FAISS.load_local(path, _get_embedding(), allow_dangerous_deserialization=True)
     except Exception as e:
-        logger.error(f"加载知识库时发生异常: {str(e)}")
+        logger.error("加载知识库失败: %s", e)
+        _db = None
+    return _db
+
+
+def make_rag_search():
+    """返回一个 (code) -> str 的检索函数；向量库不可用时返回 None。
+
+    消融实验通过"传 None 给 build_workflow"来关闭 RAG。
+    """
+    db = load_db()
+    if db is None:
         return None
 
-db = load_db()
+    def rag_search(code: str) -> str:
+        if not code or not code.strip():
+            return ""
+        try:
+            results = db.similarity_search_with_score(code, k=3)
+        except Exception as e:
+            logger.error("检索失败: %s", e)
+            return ""
 
-text_splitter = RecursiveCharacterTextSplitter(
-    chunk_size=500,
-    chunk_overlap=80
-)
+        kept = [doc.page_content for doc, score in results if score <= MAX_DISTANCE]
+        if not kept:
+            return ""
+        return "\n---\n".join(kept)
 
-@tool
-def add_knowledge_to_faiss(knowledge: str):
-    """
-    将知识添加到FAISS向量数据库
-    参数：
-    knowledge:知识字符串
-    """
-    global db
-    if not db:
-        return "向量库未加载"
-    if not knowledge or not knowledge.strip():
-        return "请输入有效知识字符串"
+    return rag_search
 
-    try:
-        doc = Document(
-            page_content=knowledge,
-            metadata={"source": "new_knowledge"}
-        )
-        docs_to_index = text_splitter.split_documents([doc])
-        db.add_documents(docs_to_index)
-        db.save_local(os.getenv("KNOWLEDGE_DB_PATH", "rag/faiss"))
-        return "已入库"
-    except Exception as e:
-        logger.error(f"add_knowledge_to_faiss 异常: {str(e)}")
-        return f"添加知识失败: {str(e)}"
 
-@tool
-def rag_search_code_knowledge(code: str)-> str:
-    """
-    从向量库中查询代码知识
-    参数：
-    code:代码字符串
-    返回：
-    knowledge:查询结果字符串
-    """
-    if not db:
-        return "向量库未加载"
-    if not code or not code.strip():
-        return "请输入有效代码或错误信息"
-    try:
-        query = embedding.embed_query(code)
-        results = db.similarity_search_by_vector(query, k=3)
-        knowledge = "\n".join([doc.page_content for doc in results])
-        if not knowledge:
-            return "未找到相关知识"
-        else:
-            return knowledge
-    except Exception as e:
-        logger.error(f"rag_search_code_knowledge 异常: {str(e)}")
-        return f"查询失败: {str(e)}"
+def add_documents(texts):
+    """离线接口：向知识库追加知识并落盘。不在请求热路径上调用。"""
+    db = load_db()
+    if db is None:
+        raise RuntimeError("向量库未加载")
+    db.add_documents([Document(page_content=t, metadata={"source": "offline"}) for t in texts])
+    db.save_local(os.getenv("KNOWLEDGE_DB_PATH", "rag/faiss").strip('"'))

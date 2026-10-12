@@ -1,14 +1,12 @@
-version: '3.8'
-
 services:
   app:
     build: .
     ports:
       - "8000:8000"
-    environment:
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - OPENAI_API_BASE=${OPENAI_API_BASE}
-      - LLM_MODEL=${LLM_MODEL}
+    # 统一从 .env 注入 —— 原版只透传了 3 个变量，缺 SILICON_API_KEY 等，
+    # 会导致容器里的 RAG 直接失效。
+    env_file:
+      - .env
     volumes:
       - ./rag/faiss:/app/rag/faiss
     restart: unless-stopped

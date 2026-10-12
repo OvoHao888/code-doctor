@@ -513,6 +513,32 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(255, 255, 255, 0.25);
         }
+
+        /* 执行验证横幅 */
+        .verify-banner {
+            padding: 14px 18px;
+            border-radius: 10px;
+            margin-bottom: 14px;
+            font-size: 0.95em;
+            line-height: 1.6;
+            border: 1px solid;
+        }
+        .verify-banner.ok {
+            background: rgba(34, 197, 94, 0.12);
+            border-color: rgba(34, 197, 94, 0.4);
+            color: #4ade80;
+        }
+        .verify-banner.fail {
+            background: rgba(239, 68, 68, 0.12);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #f87171;
+        }
+        .run-meta {
+            font-size: 0.82em;
+            color: #64748b;
+            margin-bottom: 22px;
+            text-align: center;
+        }
     </style>
 </head>
 <body>
@@ -603,6 +629,10 @@
                             <div class="label">修复方案</div>
                         </div>
                     </div>
+
+                    <!-- 执行验证状态：本系统的核心判据，实际跑过修复后的代码 -->
+                    <div id="verifyBanner" class="verify-banner" style="display:none;"></div>
+                    <div id="runMeta" class="run-meta"></div>
 
                     <!-- 代码解析 -->
                     <div style="margin-bottom: 25px;">
@@ -719,7 +749,7 @@ print(calculate_average([]))</div>
                 const response = await fetch(`${API_BASE}/checkCode`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code, error_info: errorInfo })
+                    body: JSON.stringify({ code, error: errorInfo })
                 });
 
                 if (!response.ok) throw new Error(`API错误: ${response.status}`);
@@ -732,93 +762,82 @@ print(calculate_average([]))</div>
             }
         }
 
-        // 显示结果
+        // 显示结果 —— 直接消费后端返回的结构化字段
         function displayResult(result) {
             document.getElementById('resultContent').style.display = 'block';
-            
-            const messages = result.messages || [];
-            let parsedCode = '';
-            let bugInfo = '';
-            let fixCode = '';
-            let report = '';
-            
-            messages.forEach(msg => {
-                const content = typeof msg === 'object' ? (msg.content || '') : String(msg);
-                if (content.includes('解析') || content.includes('结构') || content.includes('函数') || content.includes('变量')) {
-                    if (!parsedCode) parsedCode = content;
-                }
-                if (content.includes('错误') || content.includes('bug') || content.includes('Bug') || content.includes('语法') || content.includes('逻辑')) {
-                    if (!bugInfo) bugInfo = content;
-                }
-                if (content.includes('修复') || content.includes('fix') || content.includes('代码：') || content.includes('def ') || content.includes('return ')) {
-                    if (!fixCode) fixCode = content;
-                }
-                if (content.includes('报告') || content.includes('总结') || content.includes('完成') || content.includes('结果')) {
-                    if (!report) report = content;
-                }
-            });
-            
-            if (!parsedCode) parsedCode = messages.slice(0, 2).map(m => typeof m === 'object' ? (m.content || '') : String(m)).join('\n') || '无解析结果';
-            if (!bugInfo) bugInfo = messages.slice(1, 3).map(m => typeof m === 'object' ? (m.content || '') : String(m)).join('\n') || '未发现明显问题';
-            if (!fixCode) fixCode = messages.slice(2, 4).map(m => typeof m === 'object' ? (m.content || '') : String(m)).join('\n') || '无修复方案';
-            if (!report) report = messages.length > 0 ? (typeof messages[messages.length-1] === 'object' ? messages[messages.length-1].content : String(messages[messages.length-1])) : '无报告';
-            
-            document.getElementById('parsedCode').textContent = parsedCode;
-            document.getElementById('fixCode').textContent = fixCode;
-            document.getElementById('report').textContent = report;
-            
-            renderBugCards(bugInfo);
-            updateStats(bugInfo, fixCode);
+
+            const bugs = result.bugs || [];
+
+            document.getElementById('parsedCode').textContent = result.evidence || '无分析结果';
+            document.getElementById('fixCode').textContent = result.fixed_code || '未进入修复流程';
+            document.getElementById('report').textContent = result.report || '无报告';
+
+            renderBugCards(bugs);
+            updateStats(result);
+            renderVerifyBanner(result);
         }
 
-        // 渲染Bug卡片
-        function renderBugCards(bugInfo) {
+        // 验证状态横幅：执行式验证是本系统的核心判据，必须显式展示
+        function renderVerifyBanner(result) {
+            const el = document.getElementById('verifyBanner');
+            if (!el) return;
+            const v = result.verification;
+            if (!v) {
+                el.style.display = 'none';
+                return;
+            }
+            el.style.display = 'block';
+            if (v.passed) {
+                el.className = 'verify-banner ok';
+                el.textContent = `✓ 执行验证通过（实际运行修复后代码，退出码 0，耗时 ${v.duration}s）`;
+            } else if (v.timed_out) {
+                el.className = 'verify-banner fail';
+                el.textContent = `✗ 执行验证未通过：运行超时（疑似死循环）`;
+            } else {
+                el.className = 'verify-banner fail';
+                el.textContent = `✗ 执行验证未通过（退出码 ${v.exit_code}）：${(v.stderr || '').split('\n').slice(-2).join(' ')}`;
+            }
+        }
+
+        // 渲染Bug卡片 —— 改为消费结构化的 bugs 数组
+        function renderBugCards(bugs) {
             const bugContainer = document.getElementById('bugInfo');
-            if (!bugInfo || bugInfo.includes('未发现')) {
+            if (!bugs || bugs.length === 0) {
                 bugContainer.innerHTML = '<div style="text-align: center; padding: 25px; color: #22c55e; font-size: 1.1em;">✓ 代码质量良好，未发现明显问题</div>';
                 return;
             }
-            
-            const bugItems = bugInfo.split(/\n(?=[\d*•-])/).filter(item => item.trim());
-            const cards = bugItems.map((item, index) => {
-                const isCritical = item.includes('Critical') || item.includes('严重');
-                const isHigh = item.includes('High') || item.includes('高');
-                const severityClass = isCritical ? 'bug-item' : isHigh ? 'bug-item warning' : 'bug-item info';
-                
+
+            const cards = bugs.map((bug, index) => {
+                const sev = (bug.severity || '').toLowerCase();
+                const severityClass = sev === 'high' ? 'bug-item' : sev === 'medium' ? 'bug-item warning' : 'bug-item info';
+                const label = sev === 'high' ? '严重' : sev === 'medium' ? '中等' : '轻微';
                 return `
                     <div class="${severityClass}">
-                        <h4>${item.split('\n')[0] || `问题 ${index + 1}`}</h4>
-                        <p>${item.split('\n').slice(1).join('\n') || '暂无详细描述'}</p>
+                        <h4>第 ${bug.line} 行 · ${bug.type} <span style="opacity:.6;font-size:.85em;">[${label}]</span></h4>
+                        <p>${bug.description || '暂无详细描述'}</p>
                     </div>
                 `;
             });
-            
+
             bugContainer.innerHTML = cards.join('');
         }
 
         // 更新统计数字
-        function updateStats(bugInfo, fixCode) {
-            let bugCount = 0;
-            let criticalCount = 0;
-            let warningCount = 0;
-            
-            if (bugInfo && !bugInfo.includes('未发现')) {
-                const bugItems = bugInfo.split(/\n(?=[\d*•-])/).filter(item => item.trim());
-                bugCount = bugItems.length;
-                
-                bugItems.forEach(item => {
-                    if (item.includes('Critical') || item.includes('严重')) {
-                        criticalCount++;
-                    } else if (item.includes('High') || item.includes('高')) {
-                        warningCount++;
-                    }
-                });
+        function updateStats(result) {
+            const bugs = result.bugs || [];
+            const stats = result.stats || {};
+
+            document.getElementById('bugCount').textContent = bugs.length;
+            document.getElementById('criticalCount').textContent = bugs.filter(b => (b.severity || '').toLowerCase() === 'high').length;
+            document.getElementById('warningCount').textContent = bugs.filter(b => (b.severity || '').toLowerCase() === 'medium').length;
+            document.getElementById('fixCount').textContent = result.fixed_code ? result.fix_attempts : 0;
+
+            const meta = document.getElementById('runMeta');
+            if (meta) {
+                meta.textContent = stats.duration
+                    ? `耗时 ${stats.duration}s · LLM 调用 ${stats.llm_calls} 次 · ${stats.total_tokens} tokens · 修复尝试 ${result.fix_attempts || 0} 次`
+                    : '';
             }
-            
-            document.getElementById('bugCount').textContent = bugCount;
-            document.getElementById('criticalCount').textContent = criticalCount;
-            document.getElementById('warningCount').textContent = warningCount;
-            document.getElementById('fixCount').textContent = fixCode && fixCode.includes('def ') ? bugCount : 0;
         }
 
         // 显示错误
