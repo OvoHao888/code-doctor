@@ -1,0 +1,21 @@
+# 环境变量与密钥
+.env
+.env.local
+.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# 测试与日志
+.pytest_cache/
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# 评测产物
+eval/results/

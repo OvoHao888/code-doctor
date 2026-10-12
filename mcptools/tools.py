@@ -17,7 +17,7 @@ try:
             "url": "https://mcp.tavily.com/mcp",
             "transport": "http",
             "headers": {
-                "Authorization": "Bearer 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"
+                "Authorization": f"Bearer {os.getenv('TAVILY_API_KEY', '')}"
             }
         }
     })
