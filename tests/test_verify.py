@@ -48,3 +48,62 @@ def test_在隔离目录执行_无法导入本项目模块():
     r = execute_code("import graph")
     assert r.passed is False
     assert "ModuleNotFoundError" in r.stderr
+
+# —— 临时目录异常不得影响验证结论 ——
+#
+# 背景：TemporaryDirectory 的清理在 __exit__ 里执行（shutil.rmtree → _resetperms → chmod）。
+# 在杀毒软件占用文件、受限令牌或权限异常的临时目录下，这一步会抛 PermissionError。
+# 如果让它向外抛，异常会一路穿到 FastAPI，调用方看到的是"检查代码失败"，
+# 而真实语义只是"代码没跑通"——两者完全不同。
+
+
+def test_临时目录清理失败不改变验证结论(monkeypatch):
+    """清理失败只能记日志：代码本身跑通了，结论就必须是通过。"""
+    import tempfile
+
+    import graph.verify as verify
+
+    holder = {}
+
+    class CleanupFails:
+        def __init__(self, *args, **kwargs):
+            if "dir" not in holder:
+                holder["dir"] = tempfile.mkdtemp(prefix="verify-cleanup-fail-")
+            self.name = holder["dir"]
+
+        def __enter__(self):
+            return self.name
+
+        def __exit__(self, *exc):
+            raise PermissionError("模拟临时目录清理失败（chmod 被拒绝）")
+
+    monkeypatch.setattr(verify.tempfile, "TemporaryDirectory", CleanupFails)
+
+    r = verify.execute_code("print(1 + 1)")
+
+    assert r is not None, "清理失败不应让 execute_code 抛异常"
+    assert r.passed is True, "代码本身执行成功，结论必须保持通过"
+    assert r.exit_code == 0
+    assert "2" in r.stdout, "输出也应完整保留"
+
+
+def test_临时目录创建失败时如实报告无法执行(monkeypatch):
+    """连临时目录都建不出来时，应返回"无法执行"，而不是抛异常。"""
+    import graph.verify as verify
+
+    class EnterFails:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            raise PermissionError("模拟无法创建临时目录")
+
+        def __exit__(self, *exc):
+            return False
+
+    monkeypatch.setattr(verify.tempfile, "TemporaryDirectory", EnterFails)
+
+    r = verify.execute_code("print(1)")
+
+    assert r.passed is False
+    assert "无法执行代码" in r.stderr

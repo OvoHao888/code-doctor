@@ -14,15 +14,19 @@
         docker run --rm --network none --read-only --memory 256m --pids-limit 64 ...
 """
 
+import logging
 import os
 import subprocess
 import sys
 import tempfile
 import time
+from typing import Optional
 
 from langchain_core.messages import AIMessage
 
 from .state import VerifyResult
+
+logger = logging.getLogger(__name__)
 
 # 单次执行的最长耗时（秒）
 EXEC_TIMEOUT = float(os.getenv("VERIFY_TIMEOUT", "5"))
@@ -31,7 +35,19 @@ MAX_OUTPUT = 2000
 
 
 def execute_code(code: str, timeout: float = EXEC_TIMEOUT) -> VerifyResult:
-    """在隔离的子进程里执行代码，返回可证伪的验证结果。"""
+    """在隔离的子进程里执行代码，返回可证伪的验证结果。
+
+    注意这里刻意把"验证结论"与"临时目录清理"分开：结论先算出来存进 result，
+    清理动作即使失败也只记一条日志。原因是 TemporaryDirectory 的清理发生在
+    __exit__，它会走 shutil.rmtree → _resetperms → os.chmod；在杀毒软件占用文件、
+    受限令牌或权限异常的临时目录下，这一步会抛 PermissionError。如果放任它向外抛，
+    异常会穿过本函数、穿过 LangGraph 节点、再被 FastAPI 的兜底 handler 捕获，
+    调用方看到的是"检查代码失败"，而真实情况只是"代码跑失败了"——两者的语义完全不同。
+
+    顺带说明：`TemporaryDirectory(ignore_cleanup_errors=True)` 并不能解决这个问题。
+    CPython 的 _resetperms 调用位于 try 内部，而那个 try 只捕获 FileNotFoundError，
+    chmod 被拒时 PermissionError 会直接穿透，ignore_errors 根本没机会生效。
+    """
     started = time.time()
 
     if not code or not code.strip():
@@ -42,42 +58,56 @@ def execute_code(code: str, timeout: float = EXEC_TIMEOUT) -> VerifyResult:
         "SYSTEMROOT": os.environ.get("SYSTEMROOT", ""),
     }
 
-    with tempfile.TemporaryDirectory() as workdir:
-        try:
-            proc = subprocess.run(
-                # -I 隔离模式隐含 -E（忽略所有 PYTHON* 环境变量），所以编码必须用
-                # 命令行开关 -X utf8 指定，而不能靠 PYTHONIOENCODING —— 否则用户代码
-                # 一打印中文/emoji 就会因 GBK 编码失败，被误判成"修复失败"。
-                [sys.executable, "-I", "-X", "utf8", "-c", code],
-                cwd=workdir,
-                capture_output=True,
-                timeout=timeout,
-                env=env,
-                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
-            )
-        except subprocess.TimeoutExpired:
-            return VerifyResult(
-                passed=False,
-                exit_code=None,
-                stderr=f"执行超时（超过 {timeout}s），疑似死循环或阻塞调用",
-                timed_out=True,
-                duration=round(time.time() - started, 3),
-            )
-        except Exception as e:
+    result: Optional[VerifyResult] = None
+    try:
+        with tempfile.TemporaryDirectory() as workdir:
+            try:
+                proc = subprocess.run(
+                    # -I 隔离模式隐含 -E（忽略所有 PYTHON* 环境变量），所以编码必须用
+                    # 命令行开关 -X utf8 指定，而不能靠 PYTHONIOENCODING —— 否则用户代码
+                    # 一打印中文/emoji 就会因 GBK 编码失败，被误判成"修复失败"。
+                    [sys.executable, "-I", "-X", "utf8", "-c", code],
+                    cwd=workdir,
+                    capture_output=True,
+                    timeout=timeout,
+                    env=env,
+                    creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+                )
+            except subprocess.TimeoutExpired:
+                result = VerifyResult(
+                    passed=False,
+                    exit_code=None,
+                    stderr=f"执行超时（超过 {timeout}s），疑似死循环或阻塞调用",
+                    timed_out=True,
+                    duration=round(time.time() - started, 3),
+                )
+            except Exception as e:
+                result = VerifyResult(
+                    passed=False,
+                    stderr=f"无法执行代码：{e}",
+                    duration=round(time.time() - started, 3),
+                )
+            else:
+                result = VerifyResult(
+                    passed=proc.returncode == 0,
+                    exit_code=proc.returncode,
+                    stdout=proc.stdout.decode("utf-8", "replace")[:MAX_OUTPUT],
+                    stderr=proc.stderr.decode("utf-8", "replace")[:MAX_OUTPUT],
+                    timed_out=False,
+                    duration=round(time.time() - started, 3),
+                )
+    except Exception as e:
+        # 走到这里说明是临时目录的清理阶段抛出的异常，与"代码能不能跑通"无关。
+        logger.warning("临时目录清理失败，不影响验证结论: %s", e)
+        if result is None:
+            # 连执行都没走到（例如临时目录根本创建不出来），如实报告无法执行
             return VerifyResult(
                 passed=False,
                 stderr=f"无法执行代码：{e}",
                 duration=round(time.time() - started, 3),
             )
 
-    return VerifyResult(
-        passed=proc.returncode == 0,
-        exit_code=proc.returncode,
-        stdout=proc.stdout.decode("utf-8", "replace")[:MAX_OUTPUT],
-        stderr=proc.stderr.decode("utf-8", "replace")[:MAX_OUTPUT],
-        timed_out=False,
-        duration=round(time.time() - started, 3),
-    )
+    return result
 
 
 def make_verify_node():
