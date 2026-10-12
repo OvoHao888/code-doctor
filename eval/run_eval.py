@@ -23,6 +23,7 @@ import os
 import statistics
 import sys
 import time
+from typing import List, Optional
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -173,6 +174,29 @@ def evaluate_outcome(sample, row) -> bool:
     return judge(sample, code)
 
 
+async def run_dataset(dataset, workflow, concurrency: int = 3, progress: bool = True):
+    """并发跑完整个数据集，返回与 dataset 顺序一致的明细列表。
+
+    注意这里不用 `for ... await run_one(...)`：`await` 出现在循环体里意味着每个样本
+    都要等上一个结束才开始，Semaphore 形同虚设，`--concurrency N` 与 1 没有区别。
+    改成 asyncio.gather 之后，真实并发度才等于 concurrency；用下标回填保证 rows 的
+    顺序仍然与 dataset 一一对应，下游按 zip(dataset, rows) 取数不受影响。
+    """
+    sem = asyncio.Semaphore(concurrency)
+    rows: List[Optional[dict]] = [None] * len(dataset)
+
+    async def run_slot(i: int, sample) -> dict:
+        row = await run_one(sample, workflow, sem)
+        rows[i] = row
+        if progress:
+            status = "ERR" if "error" in row else ("BUG" if row["has_bug_predicted"] else "clean")
+            print(f"  [{i + 1}/{len(dataset)}] {sample['id']:<28} {status:<5} {row.get('duration', 0)}s")
+        return row
+
+    await asyncio.gather(*(run_slot(i, s) for i, s in enumerate(dataset)))
+    return rows
+
+
 async def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--rag", choices=["on", "off"], default="on")
@@ -209,13 +233,7 @@ async def main():
 
     print(f"运行评测: RAG={args.rag} | 样本数={len(dataset)} | 并发={args.concurrency}\n")
 
-    sem = asyncio.Semaphore(args.concurrency)
-    rows = []
-    for i, sample in enumerate(dataset, 1):
-        row = await run_one(sample, workflow, sem)
-        rows.append(row)
-        status = "ERR" if "error" in row else ("BUG" if row["has_bug_predicted"] else "clean")
-        print(f"  [{i}/{len(dataset)}] {sample['id']:<28} {status:<5} {row.get('duration', 0)}s")
+    rows = await run_dataset(dataset, workflow, args.concurrency)
 
     # —— 汇总指标 ——
     positives = [(s, r) for s, r in zip(dataset, rows) if s["has_bug"]]
