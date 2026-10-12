@@ -15,7 +15,11 @@ mcp==1.30.0
 
 # 向量检索
 faiss-cpu==1.15.1
-numpy==2.5.4
+# 这里刻意不 pin numpy：它只是 faiss-cpu / langchain-community 的传递依赖，
+# 项目源码里没有任何一处 import numpy。此前写死 numpy==2.5.4 会强制安装一个
+# 没有 cp311 wheel 的版本，导致整套依赖在 Python 3.11 上直接装不上 ——
+# 一个用不到的包把项目锁死在了 Python >= 3.12。
+# 交给 pip 按解释器版本解析，它自然会选到有 wheel 的那一版。
 
 # 静态分析
 pyflakes==4.0.3

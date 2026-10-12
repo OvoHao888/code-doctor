@@ -100,6 +100,8 @@ START → analyze → check → research ─┬─(无问题)──────�
 
 ## 快速开始
 
+> 需要 **Python 3.11 或更高**（CI 在 3.11 / 3.12 上跑全量测试）。
+
 ```bash
 # 1. 准备环境变量
 cp .env.example .env    # 填入你的 API Key
