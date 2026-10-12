@@ -1,5 +1,9 @@
 # Code Doctor
 
+[![tests](https://github.com/OvoHao888/code-doctor/actions/workflows/tests.yml/badge.svg)](https://github.com/OvoHao888/code-doctor/actions/workflows/tests.yml)
+![Python](https://img.shields.io/badge/python-3.11%2B-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+
 一个**自纠错**的多智能体 Python 代码诊断与修复系统。提交代码后，系统会完成
 静态分析 → 问题检测 → 代码修复 → **实际执行验证** → 生成报告的完整闭环，
 并在验证失败时带着执行错误回炉重试。
@@ -125,6 +129,48 @@ set PYTHONIOENCODING=utf-8
 | `VERIFY_TIMEOUT` | 执行验证超时秒数，默认 5 |
 
 ---
+
+## API
+
+服务启动后：
+
+- `GET /` 返回前端页面（前后端同源，只占一个端口）
+- `GET /docs` 是 Swagger UI，可直接在浏览器里调试
+
+### `POST /checkCode`
+
+```bash
+curl -X POST http://127.0.0.1:8000/checkCode \
+  -H "Content-Type: application/json" \
+  -d '{"code": "data = [1, 2, 3]\nprint(data[10])", "error": "IndexError: list index out of range"}'
+```
+
+响应（字段省略了正文）：
+
+```json
+{
+  "report": "## 问题概述\n...",
+  "has_bug": true,
+  "bugs": [
+    {"line": 2, "type": "索引越界", "severity": "high", "description": "访问下标 10，超出列表长度 3"}
+  ],
+  "confidence": 0.95,
+  "fixed_code": "data = [1, 2, 3]\nif len(data) > 10:\n    print(data[10])",
+  "fix_attempts": 1,
+  "verification": {
+    "passed": true, "exit_code": 0,
+    "stdout": "", "stderr": "", "timed_out": false, "duration": 0.031
+  },
+  "stats": {"llm_calls": 3, "total_tokens": 3903, "duration": 25.3}
+}
+```
+
+### `GET /health`
+
+```bash
+curl http://127.0.0.1:8000/health
+# {"message": "Code Doctor is running"}
+```
 
 ## 评测
 
